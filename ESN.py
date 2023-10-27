@@ -66,7 +66,7 @@ output = outputLayer(ESNOutput)
 model = keras.models.Model(inputs=inputData, outputs=output)
 model.compile(optimizer = "adam", loss = "mean_squared_error")
 
-epochCount = 10
+epochCount = 100
 for epoch in range(epochCount):
     history = model.fit(xTrain, yTrain, epochs=1, verbose=0)
     trainLoss = history.history['loss'][0]
