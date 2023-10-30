@@ -15,7 +15,7 @@ class EchoStateNetwork(keras.layers.Layer):
     def build(self, inputShape):
         self.reservoirWeights = self.add_weight(
             "reservoirWeights",
-            shape=(inputShape[-1], self.reservoirSize),
+            shape = (inputShape[-1], self.reservoirSize),
             initializer = tf.initializers.glorot_uniform(seed=self.seed),
             trainable = False,
         )
