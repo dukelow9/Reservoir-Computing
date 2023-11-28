@@ -3,11 +3,6 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow import keras
 from sklearn.model_selection import train_test_split
-import wandb
-from wandb.keras import WandbCallback
-
-wandb.login()
-wandb.init(project='esn-experiment')
 
 class EchoStateNetwork(keras.layers.Layer):
     def __init__(self, reservoirSize, spectralRadius=0.9, sparsity=0.2, seed=None, **kwargs):
@@ -21,7 +16,7 @@ class EchoStateNetwork(keras.layers.Layer):
         self.reservoirWeights = self.add_weight(
             "reservoirWeights",
             shape=(inputShape[-1], self.reservoirSize),
-            initializer=tf.initializers.glorot_uniform(seed=self.seed),
+            initializer=tf.initializers.random_normal(mean=0, stddev=0.1, seed=self.seed),
             trainable=False,
         )
         self.recurrentWeights = self.add_weight(
@@ -43,62 +38,31 @@ class EchoStateNetwork(keras.layers.Layer):
         x = tf.tanh(tf.matmul(x, self.recurrentWeights))
         return x
 
-dataLength = 1000
-t = np.linspace(0, 60 * np.pi, dataLength)
-opticalData = (0.5 * np.sin(0.1 * t) + 0.2 * np.sin(0.5 * t) + 0.3 * np.sin(1.0 * t) + 0.1 * np.random.randn(dataLength))
+def generateData(batch_size, steps):
+    freq1, freq2, offsets1, offsets2 = np.random.rand(4, batch_size, 1)
+    time = np.linspace(0, 1, steps)
+    series = 0.5 * np.sin((time - offsets1) * (freq1 * 10 + 10))
+    series += 0.2 * np.sin((time - offsets2) * (freq2 * 20 + 20))
+    series += 0.1 * (np.random.rand(batch_size, steps) - 0.5)
+    return series[..., np.newaxis].astype(np.float32)
 
-sequenceLength = 500
-X, Y = [], []
+np.random.seed(42)
+steps = 50
+series = generateData(500, steps + 1)
+xTrain, xTest, yTrain, yTest = train_test_split(series[:, :steps], series[:, -1], test_size=0.2, shuffle=False)
+xTrain, xValid, yTrain, yValid = train_test_split(xTrain, yTrain, test_size=0.1, shuffle=False)
 
-for i in range(dataLength - sequenceLength):
-    X.append(opticalData[i:i + sequenceLength])
-    Y.append(opticalData[i + sequenceLength])
+esn = EchoStateNetwork(reservoirSize=100, spectralRadius=0.9, sparsity=0.2, seed=42)
 
-X = np.array(X)
-Y = np.array(Y)
+model = keras.models.Sequential([esn, keras.layers.Dense(1, activation='linear', use_bias=False)])
+optimizer = keras.optimizers.Adam(learning_rate=0.005)
+model.compile(loss="mse", optimizer="adam")
 
-xTrain, xTest, yTrain, yTest = train_test_split(X, Y, test_size=0.2, shuffle=False)
+xTrain = xTrain.reshape((xTrain.shape[0], -1))
+xValid = xValid.reshape((xValid.shape[0], -1))
 
-reservoirSize = 400
-esn = EchoStateNetwork(reservoirSize=reservoirSize)
+history = model.fit(xTrain, yTrain, epochs=100, validation_data=(xValid, yValid))
 
-outputLayer = keras.layers.Dense(1, activation="linear", trainable=True)
-
-inputData = keras.layers.Input(shape=(sequenceLength,))
-ESNOutput = esn(inputData)
-output = outputLayer(ESNOutput)
-
-model = keras.models.Model(inputs=inputData, outputs=output)
-model.compile(optimizer="adam", loss="mean_squared_error")
-
-epochCount = 100
-for epoch in range(epochCount):
-    history = model.fit(xTrain, yTrain, epochs=1, verbose=0)
-    trainLoss = history.history['loss'][0]
-    wandb.log({'epoch': epoch + 1, 'train_loss': trainLoss})
-    testLoss = model.evaluate(xTest, yTest, verbose=0)
-    wandb.log({'epoch': epoch + 1, 'test_loss': testLoss})
-    print(f"Epoch {epoch + 1}/{epochCount}  ---  Train Loss: {trainLoss:.4f}  ---  Test Loss: {testLoss:.4f}")
-
-testLoss = model.evaluate(xTest, yTest)
-wandb.log({'test_loss': testLoss})
-print(f"Test Loss: {testLoss:.4f}")
-predictions = model.predict(xTest)
-
-plt.figure(figsize=(12, 6))
-plt.subplot(2, 1, 1)
-plt.title("Optical Data")
-plt.plot(opticalData, label="Actual Data")
-plt.xlabel("Time (t)")
-plt.ylabel("Intensity (Wm$^-2$)")
-plt.legend()
-
-plt.subplot(2, 1, 2)
-plt.title("Model Predictions")
-plt.plot(yTest, label="Actual Data", linestyle='--', alpha=0.7)
-plt.plot(predictions, label="Prediction Data")
-plt.xlabel("Time (t)")
-plt.ylabel("Intensity (Wm$^-2$)")
-plt.legend()
-plt.tight_layout()
-plt.show()
+predictions = model.predict(xTest.reshape((xTest.shape[0], -1)))
+loss = model.evaluate(xTest.reshape((xTest.shape[0], -1)), yTest)
+print(f"Test Loss: {loss}")
