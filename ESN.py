@@ -144,8 +144,6 @@ history = model.fit(xTrain, yTrain, epochs=500, validation_data=(xValid, yValid)
 
 endTime = time.time()
 
-predictions = model.predict(xTest.reshape((xTest.shape[0], -1)))
-loss = model.evaluate(xTest.reshape((xTest.shape[0], -1)), yTest)
 print(f"Test Loss: {loss}")
 
 elapsedTime = endTime - startTime
