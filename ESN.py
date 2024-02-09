@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import time
 from tensorflow.keras import layers, initializers
 from sklearn.model_selection import train_test_split
 from tensorflow.python.ops import math_ops
