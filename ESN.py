@@ -98,6 +98,13 @@ class EchoStateNetwork(layers.Layer):
 
         return self._activation(output), [output]
     
+
+earlyStopping = EarlyStopping(
+    monitor='val_loss',
+    patience=15,
+    restore_best_weights=True
+)
+    
 ###############################################################################
 
 def generateMackeyGlass(length, beta=0.2, gamma=0.1, n=10, tau=25):
@@ -119,13 +126,6 @@ x = x.reshape((x.shape[0], -1))
 xTrain, xTest, yTrain, yTest = train_test_split(x, y, test_size=0.2, shuffle=False)
 xTrain, xValid, yTrain, yValid = train_test_split(xTrain, yTrain, test_size=0.1, shuffle=False)
 
-
-earlyStopping = EarlyStopping(
-    monitor='val_loss',
-    patience=15,
-    restore_best_weights=True
-)
-
 cell = EchoStateNetwork(neurons=15, activation=activation, decay=0.3, epsilon=1e-20, alpha=0.1, optimize=True,
                         optimizeVars=["spectralRad", "decay", "alpha", "scale"], seed=np.random.randint(0, 1000))
 recurrentLayer = tf.keras.layers.RNN(cell, input_shape=(steps, 1), return_sequences=False, name="nn")
@@ -145,7 +145,7 @@ history = model.fit(xTrain, yTrain, epochs=500, validation_data=(xValid, yValid)
 
 endTime = time.time()
 
-print(f"Test Loss: {loss}")
+predictions = model.predict(xTest.reshape((xTest.shape[0], -1)))
 
 elapsedTime = endTime - startTime
 print(f"Training Time: {elapsedTime} seconds")
