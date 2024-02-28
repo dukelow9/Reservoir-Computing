@@ -107,10 +107,11 @@ earlyStopping = EarlyStopping(
     
 ###############################################################################
 
-def generateMackeyGlass(length, beta=0.2, gamma=0.1, n=10, tau=25):
+def generateMackeyGlass(length, beta=0.2, gamma=0.1, n=10, tau=25, noise_strength=0.02):
     x = 1.2 * np.ones((length + tau,))
     for t in range(tau, length + tau - 1):
         x[t + 1] = x[t] + (beta * x[t - tau]) / (1 + x[t - tau]**n) - gamma * x[t]
+        x[t + 1] += noise_strength * np.random.normal()
     return x[tau:]
 
 length = 2000
