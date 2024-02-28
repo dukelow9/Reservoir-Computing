@@ -98,28 +98,46 @@ class EchoStateNetwork(layers.Layer):
 
         return self._activation(output), [output]
     
-def generateSLMMatrix(shape):
-    return np.random.choice([0, 1], size=shape)
+def convertToBinaryPattern(data):
+    threshold = np.mean(data)
+    binaryPattern = np.where(data > threshold, 1, 0)
+    return binaryPattern
 
-def generateTransmissionMatrix(shape, mean=0, std=1):
-    return np.random.normal(loc=mean, scale=std, size=shape)
+def opticalDiffuser(inputPattern, transmissionMatrix):
+    diffusedPattern = np.dot(inputPattern, transmissionMatrix)
+    return diffusedPattern
+    
+earlyStopping = EarlyStopping(
+    monitor='val_loss',
+    patience=15,
+    restore_best_weights=True
+)
+    
+#################################################################################################################
 
-SLMMatrix = generateSLMMatrix((50, 50))
+def generateMackeyGlass(length, beta=0.2, gamma=0.1, n=10, tau=25, noise_strength=0.02):
+    x = 1.2 * np.ones((length + tau,))
+    for t in range(tau, length + tau - 1):
+        x[t + 1] = x[t] + (beta * x[t - tau]) / (1 + x[t - tau]**n) - gamma * x[t]
+        x[t + 1] += noise_strength * np.random.normal()
+    return x[tau:]
 
-transmissionMatrix = generateTransmissionMatrix((50, 50))
+length = 2025
+mackeyGlass = generateMackeyGlass(length)
 
 steps = 50
 activation = tf.keras.activations.relu
 
-x = SLMMatrix[:, :steps].reshape((SLMMatrix.shape[0], -1))
-y = SLMMatrix[:, steps:].reshape((SLMMatrix.shape[0], -1))
+x = np.array([mackeyGlass[i:i+steps] for i in range(length - steps)])
+y = np.array([mackeyGlass[i+steps] for i in range(length - steps)])
 
+x = x.reshape((x.shape[0], -1))
 xTrain, xTest, yTrain, yTest = train_test_split(x, y, test_size=0.2, shuffle=False)
 xTrain, xValid, yTrain, yValid = train_test_split(xTrain, yTrain, test_size=0.1, shuffle=False)
 
-cell = EchoStateNetwork(neurons=15, activation=tf.keras.activations.relu, decay=0.3, epsilon=1e-20, alpha=0.1, optimize=True,
+cell = EchoStateNetwork(neurons=100, activation=activation, decay=0.3, epsilon=1e-20, alpha=0.1, optimize=True,
                         optimizeVars=["spectralRad", "decay", "alpha", "scale"], seed=np.random.randint(0, 1000))
-recurrentLayer = tf.keras.layers.RNN(cell, input_shape=(50 * 50,), return_sequences=False, name="nn")
+recurrentLayer = tf.keras.layers.RNN(cell, input_shape=(steps, 1), return_sequences=False, name="nn")
 output = tf.keras.layers.Dense(1, name="readouts")
 
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
@@ -130,35 +148,36 @@ model.add(output)
 model.compile(loss="mse", optimizer=optimizer)
 model.summary()
 
-earlyStopping = EarlyStopping(
-    monitor='val_loss',
-    patience=15,
-    restore_best_weights=True
-)
+binaryMackeyGlass = convertToBinaryPattern(mackeyGlass)
+transmissionMatrix = np.random.rand(steps, steps)
+
+xTrainDiffused = opticalDiffuser(xTrain, transmissionMatrix)
+xValidDiffused = opticalDiffuser(xValid, transmissionMatrix)
+xTestDiffused = opticalDiffuser(xTest, transmissionMatrix)
 
 startTime = time.time()
 
-history = model.fit(xTrain, yTrain, epochs=15, validation_data=(xValid, yValid), callbacks=[earlyStopping])
+history = model.fit(xTrainDiffused, yTrain, epochs=2000,
+                    validation_data=(xValidDiffused, yValid), callbacks=[earlyStopping])
 
 endTime = time.time()
 
-predictions = model.predict(xTest)
+predictions = model.predict(xTestDiffused.reshape((xTestDiffused.shape[0], -1)))
 
 elapsedTime = endTime - startTime
 print(f"Training Time: {elapsedTime} seconds")
 
-###############################################################################################################
+##################################################################################################################
 
-plt.figure()
-plt.imshow(SLMMatrix, cmap='winter', interpolation='nearest')
-plt.title('SLM Matrix')
-plt.colorbar()
-plt.show()
-
-plt.figure()
-plt.imshow(transmissionMatrix, cmap='grey', interpolation='nearest')
-plt.title('Optical Diffuser Matrix')
-plt.colorbar()
+plt.figure(figsize=(10, 5))
+plt.title("Model Predictions")
+plt.plot(yTest, label="Actual Data", linestyle='--', color='navy', linewidth='1.5')
+plt.plot(predictions, label="Prediction Data", color='yellowgreen')
+plt.xlabel("Time (t)")
+plt.ylabel("Intensity (Wm$^-2$)")
+plt.legend()
+plt.grid()
+plt.tight_layout()
 plt.show()
 
 plt.figure(figsize=(8, 8))
@@ -169,4 +188,16 @@ plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.legend()
 plt.grid(True)
+plt.show()
+
+loss = model.evaluate(xTestDiffused.reshape((xTestDiffused.shape[0], -1)), yTest)
+print(f"Test Loss: {loss}")
+
+binaryMackeyGlass = binaryMackeyGlass[:45 * 45].reshape((45, 45))
+
+plt.figure(figsize=(8, 8))
+plt.imshow(binaryMackeyGlass.T, cmap='summer', aspect='auto', extent=[0, 45, 0, 45])
+plt.title('Binary Mackey Glass (Heatmap)')
+plt.xlabel('Time (t)')
+plt.ylabel('Pattern Index')
 plt.show()
