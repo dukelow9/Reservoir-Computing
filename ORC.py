@@ -77,7 +77,7 @@ class EchoStateNetwork(layers.Layer):
 
         spectralRad = tf.reduce_min(sol)
         return spectralRad
-
+    
     def call(self, inputs, states):
         rkernel = self.setAlpha(self.recurrent_kernel_init)
         if self.alpha != self.storeAlpha:
@@ -89,13 +89,9 @@ class EchoStateNetwork(layers.Layer):
             self.ratio.assign(self.echoStateRatio(rkernel))
             self.spectralRad.assign(self.findEchoStatespectralRad(rkernel * self.ratio))
             self.storeAlpha.assign(self.alpha)
-
         ratio = self.spectralRad * self.ratio * (1 - self.epsilon)
-        previousOutput = states[0]
-        output = previousOutput + self.decay * (
-                tf.matmul(inputs, self.kernel * self.scale) +
-                tf.matmul(self._activation(previousOutput), rkernel * ratio)
-                - previousOutput)
+        output = states[0] + self.decay * (tf.matmul(inputs, self.kernel * self.scale) + 
+                                           tf.matmul(self._activation(states[0]), rkernel * ratio) - states[0])
 
         return self._activation(output), [output]
 
