@@ -74,6 +74,7 @@ class EchoStateNetwork(layers.Layer):
         b = 2 * x * self.decay - 2 * x * self.decay**2
         c = 1 + self.decay**2 - 2 * self.decay - target**2
         sol = (tf.sqrt(b**2 - 4*a*c) - b)/(2*a)
+
         spectralRad = tf.reduce_min(sol)
         return spectralRad
 
@@ -101,11 +102,11 @@ class EchoStateNetwork(layers.Layer):
 
 earlyStopping = EarlyStopping(
     monitor='val_loss',
-    patience=15,
+    patience=10,
     restore_best_weights=True
 )
     
-###############################################################################
+#################################################################################################################
 
 def generateMackeyGlass(length, beta=0.2, gamma=0.1, n=10, tau=25, noise_strength=0.02):
     x = 1.2 * np.ones((length + tau,))
@@ -114,7 +115,7 @@ def generateMackeyGlass(length, beta=0.2, gamma=0.1, n=10, tau=25, noise_strengt
         x[t + 1] += noise_strength * np.random.normal()
     return x[tau:]
 
-length = 2000
+length = 2025
 mackeyGlass = generateMackeyGlass(length)
 
 steps = 50
@@ -127,10 +128,10 @@ x = x.reshape((x.shape[0], -1))
 xTrain, xTest, yTrain, yTest = train_test_split(x, y, test_size=0.2, shuffle=False)
 xTrain, xValid, yTrain, yValid = train_test_split(xTrain, yTrain, test_size=0.1, shuffle=False)
 
-cell = EchoStateNetwork(neurons=15, activation=activation, decay=0.3, epsilon=1e-20, alpha=0.1, optimize=True,
+cell = EchoStateNetwork(neurons=50, activation=activation, decay=0.3, epsilon=1e-20, alpha=0.1, optimize=True,
                         optimizeVars=["spectralRad", "decay", "alpha", "scale"], seed=np.random.randint(0, 1000))
 recurrentLayer = tf.keras.layers.RNN(cell, input_shape=(steps, 1), return_sequences=False, name="nn")
-output = tf.keras.layers.Dense(1, name="readouts")
+output = tf.keras.layers.Dense(1, kernel_regularizer=tf.keras.regularizers.l2(0.01), name="readouts")
 
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.005)
 
