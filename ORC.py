@@ -31,13 +31,8 @@ class modelTraining:
             x[t + 1] += noiseStrength * np.random.normal()
         return x[tau:]
 
-    def convertToBinaryPattern(self, data):
-        threshold = np.mean(data)
-        binaryPattern = np.where(data > threshold, 1, 0)
-        return binaryPattern
-
     def trainAndVisualize(self):
-        length = 2025
+        length = 4000
         mackeyGlass = self.generateMackeyGlass(length)
         steps = 50
 
@@ -94,14 +89,6 @@ class modelTraining:
 
         loss = model.evaluate(xTest.reshape((xTest.shape[0], -1)), yTest)
         print(f"Test Loss: {loss}")
-
-        binaryMackeyGlass = self.convertToBinaryPattern(mackeyGlass)
-        binaryMackeyGlass = binaryMackeyGlass[:45 * 45].reshape((45, 45))
-
-        plt.figure(figsize=(8, 8))
-        plt.imshow(binaryMackeyGlass.T, cmap='summer', aspect='auto', extent=[0, 45, 0, 45])
-        plt.title('Binary Mackey Glass (Heatmap)')
-        plt.show()
 
 activation = tf.keras.activations.relu
 dim = 50
