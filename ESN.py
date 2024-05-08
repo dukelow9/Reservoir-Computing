@@ -102,7 +102,7 @@ class EchoStateNetwork(layers.Layer):
 
 earlyStopping = EarlyStopping(
     monitor='val_loss',
-    patience=10,
+    patience=20,
     restore_best_weights=True
 )
     
@@ -115,7 +115,7 @@ def generateMackeyGlass(length, beta=0.2, gamma=0.1, n=10, tau=25, noise_strengt
         x[t + 1] += noise_strength * np.random.normal()
     return x[tau:]
 
-length = 2025
+length = 4000
 mackeyGlass = generateMackeyGlass(length)
 
 steps = 50
@@ -133,7 +133,7 @@ cell = EchoStateNetwork(neurons=50, activation=activation, decay=0.3, epsilon=1e
 recurrentLayer = tf.keras.layers.RNN(cell, input_shape=(steps, 1), return_sequences=False, name="nn")
 output = tf.keras.layers.Dense(1, kernel_regularizer=tf.keras.regularizers.l2(0.01), name="readouts")
 
-optimizer = tf.keras.optimizers.Adam(learning_rate=0.005)
+optimizer = tf.keras.optimizers.Adam()
 
 model = tf.keras.models.Sequential()
 model.add(recurrentLayer)
@@ -143,7 +143,7 @@ model.summary()
 
 startTime = time.time()
 
-history = model.fit(xTrain, yTrain, epochs=500, validation_data=(xValid, yValid), callbacks=[earlyStopping])
+history = model.fit(xTrain, yTrain, epochs=2000, validation_data=(xValid, yValid), callbacks=[earlyStopping])
 
 endTime = time.time()
 
