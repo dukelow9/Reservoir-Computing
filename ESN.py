@@ -105,8 +105,6 @@ earlyStopping = EarlyStopping(
     patience=20,
     restore_best_weights=True
 )
-    
-#################################################################################################################
 
 def generateMackeyGlass(length, beta=0.2, gamma=0.1, n=10, tau=25, noise_strength=0.02):
     x = 1.2 * np.ones((length + tau,))
@@ -151,8 +149,6 @@ predictions = model.predict(xTest.reshape((xTest.shape[0], -1)))
 
 elapsedTime = endTime - startTime
 print(f"Training Time: {elapsedTime} seconds")
-
-#######################################################################################################
 
 %matplotlib notebook
 plt.figure(figsize=(10, 5))
